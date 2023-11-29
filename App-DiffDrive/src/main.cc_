@@ -198,7 +198,7 @@ void compute_state_callback(TimerHandle_t timer) {
         analogWrite(RIGHT_PWM_PIN, 200, RIGHT_PWM);
     }
 
-    // printf("\n%d %d %d %d %f %f",LEFT_PWM,  RIGHT_PWM, LEFT_WHEEL_VEL, RIGHT_WHEEL_VEL, DiffDriveState::getInstance()->GetRightWheelVelocity(), DiffDriveState::getInstance()->GetRightWheelVelocity() );
+    printf("\n%d %d %d %d %f %f",LEFT_PWM,  RIGHT_PWM, LEFT_WHEEL_VEL, RIGHT_WHEEL_VEL, DiffDriveState::getInstance()->GetRightWheelVelocity(), DiffDriveState::getInstance()->GetRightWheelVelocity() );
     
 }
 
