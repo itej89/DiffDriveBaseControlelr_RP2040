@@ -20,7 +20,6 @@ add_compile_definitions(BUILD_NUM=${BUILD_NUMBER})
 # Include app source code file(s)
 add_executable(${APP_DIFF_DRIVE_NAME}
     ${APP_DIFF_DRIVE_SRC_DIRECTORY}/src/main.cc
-    ${APP_DIFF_DRIVE_SRC_DIRECTORY}/src/PID_v1.cpp
 )
 
 target_include_directories(${APP_DIFF_DRIVE_NAME} PUBLIC

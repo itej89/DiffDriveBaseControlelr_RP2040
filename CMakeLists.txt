@@ -15,8 +15,6 @@ set(APP_3_VERSION_NUMBER "1.4.1")
 set(APP_4_NAME "TIMERS_DEMO")
 set(APP_4_VERSION_NUMBER "1.4.1")
 
-set(APP_MANIPULATOR_NAME "MANIPULATOR")
-set(APP_MANIPULATOR_VERSION_NUMBER "1.0.0")
 
 set(APP_DIFF_DRIVE_NAME "DIFF_DRIVE")
 set(APP_DIFF_DRIVE_VERSION_NUMBER "1.0.0")
@@ -25,7 +23,6 @@ set(APP_DIFF_DRIVE_VERSION_NUMBER "1.0.0")
 set(APP_2_SRC_DIRECTORY "${CMAKE_SOURCE_DIR}/App-Scheduling")
 set(APP_3_SRC_DIRECTORY "${CMAKE_SOURCE_DIR}/App-IRQs")
 set(APP_4_SRC_DIRECTORY "${CMAKE_SOURCE_DIR}/App-Timers")
-set(APP_MANIPULATOR_SRC_DIRECTORY "${CMAKE_SOURCE_DIR}/App-Manipulator")
 set(APP_DIFF_DRIVE_SRC_DIRECTORY "${CMAKE_SOURCE_DIR}/App-DiffDrive")
 
 # FROM 1.3.0 -- Move common source code to a separate directory
@@ -80,5 +77,4 @@ target_include_directories(FreeRTOS PUBLIC
 add_subdirectory(${APP_2_SRC_DIRECTORY})
 add_subdirectory(${APP_3_SRC_DIRECTORY})
 add_subdirectory(${APP_4_SRC_DIRECTORY})
-add_subdirectory(${APP_MANIPULATOR_SRC_DIRECTORY})
 add_subdirectory(${APP_DIFF_DRIVE_SRC_DIRECTORY})

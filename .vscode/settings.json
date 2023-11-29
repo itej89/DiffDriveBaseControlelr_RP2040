@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.cc_": "cpp",
+        "atomic": "cpp"
+    }
+}

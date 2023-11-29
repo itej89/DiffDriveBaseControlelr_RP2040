@@ -12,6 +12,9 @@
 #define RADIANS_PER_COUNT   2*3.14/ ENCODER_COUNT_PER_REV
 #define DISTANCE_PER_COUNT  WHEEL_PERIMETER/ENCODER_COUNT_PER_REV
 
+//MAX RPM ; RPM = ( (V/r) / (2*pi) ) * 60
+#define MAX_RPM_CLAMP 700
+
 //MM_PER_SEC
 #define MAX_VEL_CLAMP 7500
 
@@ -36,6 +39,9 @@ class DiffDriveState{
 
         double LeftWheelVelocity = 0;
         double RightWheelVelocity = 0;
+
+        unsigned int LeftWheelRPM = 0;
+        unsigned int RightWheelRPM = 0;
 
         static DiffDriveState* instancePtr;
 
@@ -86,8 +92,11 @@ class DiffDriveState{
         float GetLeftWheelVelocity() { return LeftWheelVelocity;  }
         float GetRightWheelVelocity(){ return RightWheelVelocity; }
  
-        void SetLeftWheelStopped() { LeftWheelVelocity=0;  }
-        void SetRightWheelStopped(){ RightWheelVelocity=0; }
+        float GetLeftWheelRPM() { return LeftWheelRPM;  }
+        float GetRightWheelRPM(){ return RightWheelRPM; }
+ 
+        void SetLeftWheelStopped() { LeftWheelVelocity=0;  LeftWheelRPM = 0;}
+        void SetRightWheelStopped(){ RightWheelVelocity=0; RightWheelRPM = 0;}
 
 
         void UpdateLeftEncoderCount() { 
@@ -122,16 +131,25 @@ class DiffDriveState{
             double executionTime = ((double)(nowTime - LastStateUpdateTime) / CLOCKS_PER_SEC)+0.00001;
             
             if(LastLeftEncoderTickCounter != LeftEncoderTickCounter){
-                double tempLeftWheelVelocity = std::abs(LastLeftEncoderTickCounter - LeftEncoderTickCounter)*DISTANCE_PER_COUNT/executionTime;
+                double left_ticks_per_second = std::abs(LastLeftEncoderTickCounter - LeftEncoderTickCounter)/executionTime;
+                double left_rev_per_sec  = left_ticks_per_second/ENCODER_COUNT_PER_REV;
+                double temp_left_rpm  = left_rev_per_sec * 60;
+                LeftWheelRPM = (unsigned int)(temp_left_rpm > MAX_RPM_CLAMP ? MAX_RPM_CLAMP : temp_left_rpm);
+
+                double tempLeftWheelVelocity = left_ticks_per_second*DISTANCE_PER_COUNT;
                 LeftWheelVelocity = tempLeftWheelVelocity > MAX_VEL_CLAMP ? MAX_VEL_CLAMP : tempLeftWheelVelocity;
             }
 
             if(LastRightEncoderTickCounter != RightEncoderTickCounter){
-                double tempRightWheelVelocity = std::abs( LastRightEncoderTickCounter - RightEncoderTickCounter)*DISTANCE_PER_COUNT/executionTime;
+                double right_ticks_per_second = std::abs(LastRightEncoderTickCounter - RightEncoderTickCounter)/executionTime;
+                double right_rev_per_sec  = right_ticks_per_second/ENCODER_COUNT_PER_REV;
+                double temp_right_rpm  = right_rev_per_sec * 60;
+                RightWheelRPM = (unsigned int)(temp_right_rpm > MAX_RPM_CLAMP ? MAX_RPM_CLAMP : temp_right_rpm);
+
+                double tempRightWheelVelocity = right_ticks_per_second*DISTANCE_PER_COUNT;
                 RightWheelVelocity = tempRightWheelVelocity > MAX_VEL_CLAMP ? MAX_VEL_CLAMP : tempRightWheelVelocity;
             }
         
-
             LastStateUpdateTime = nowTime;
 
             LastLeftEncoderTickCounter = LeftEncoderTickCounter;
