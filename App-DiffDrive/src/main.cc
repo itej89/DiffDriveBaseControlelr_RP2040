@@ -58,7 +58,7 @@
 #define LEFT_ENCODER_PIN 6
 
 //Execution frequency of reading commands and speed control loops
-#define COMPUTE_STATE_RATE 20 //hz
+#define COMPUTE_STATE_RATE 5 //hz
 #define READ_CMD_RATE    20   //hz
 
 #define COMPUTE_STATE_PERIOD_MS 1000/COMPUTE_STATE_RATE //Milliseconds
@@ -101,8 +101,8 @@ double lITerm = 0.0;
 int rLastSpeed = 0;
 int lLastSpeed = 0;
 
-double _kP = .045;
-double _kI = 0.000;
+double _kP = 0.5;
+double _kI = 0.006;
 double _kD = 0.000000000625;
 
 // double _kP = .000045;
@@ -211,8 +211,6 @@ void write_state() {
 
 std::atomic<bool>  IsMotorCmdReceived(false);
 void handle_command() {
-    //   printf("\nReceived Requst!!" );
-    
     if(RX_FRAMES.size() > 0){
         uint8_t COMMAND_TYPE = RX_FRAMES.at(0).at(0);
         switch(COMMAND_TYPE){
@@ -236,12 +234,12 @@ void handle_command() {
                 RIGHT_WHEEL_VEL = tRIGHT_WHEEL_VEL;
 
                 //Converted Wheel RPM
-                double lomega = ((double)LEFT_WHEEL_VEL*1.0) / ((double)WHEEL_RADIUS*1.0);
+                double lomega = (LEFT_WHEEL_VEL*1.0) / (WHEEL_RADIUS*1.0);
                 double lrps = lomega / (2 * 3.14);
                 double lrpm = lrps * 60;
                 LEFT_WHEEL_RPM  = (uint32_t)lrpm;
 
-                double romega = ((double)RIGHT_WHEEL_VEL*1.0) / ((double)WHEEL_RADIUS*1.0);
+                double romega = (RIGHT_WHEEL_VEL*1.0) / (WHEEL_RADIUS*1.0);
                 double rrps = romega / (2 * 3.14);
                 double rrpm = rrps * 60;
                 RIGHT_WHEEL_RPM  = (uint32_t)rrpm;
@@ -265,7 +263,9 @@ int limitPWM(int pwm) {
   if (pwm > 100)
      pwm = 100;
 
-  return pwm;   
+//    double _pwm =  (((double)pwm*1.0)/100.0)*60.0;
+//    pwm = _pwm;
+  return (int)pwm;   
 }
 
 int one_sec_counter = 0;
@@ -273,10 +273,8 @@ void compute_state_callback(TimerHandle_t timer) {
         DiffDriveState::getInstance()->updateWheelPosition();
         DiffDriveState::getInstance()->updateWheelState();
 
-
         unsigned int l_rpm = DiffDriveState::getInstance()->GetLeftWheelRPM();
         unsigned int r_rpm = DiffDriveState::getInstance()->GetRightWheelRPM();
-
 
         // Maps (a value of 0 to 1) and (a value of 1 to -1)
         DiffDriveState::getInstance()->SetLeftWheelDirection( (LEFT_WHEEL_DIR * -2)+1 );
@@ -287,31 +285,44 @@ void compute_state_callback(TimerHandle_t timer) {
         double dInput = l_rpm - lLastSpeed; // calculate derivative
         int adjustment = (_kP * (double)error) + lITerm - (_kD * dInput);
         LEFT_PWM += adjustment;
+
+        // if ( l_rpm > LEFT_WHEEL_RPM )
+        //     LEFT_PWM--;
+
+        // if ( l_rpm < LEFT_WHEEL_RPM )
+        //     LEFT_PWM++;
+
         //limit speed to range of pwm 0-255
         LEFT_PWM = limitPWM(LEFT_PWM);
 
-        if (LEFT_WHEEL_VEL == 0)
-        {
+        if (LEFT_WHEEL_RPM == 0) {
             LEFT_PWM = 0;
             DiffDriveState::getInstance()->SetLeftWheelStopped();
         }
 
         lLastSpeed = l_rpm;
 
-
         // Maps (a value of 0 to 1) and (a value of 1 to -1)
         DiffDriveState::getInstance()->SetRightWheelDirection( (RIGHT_WHEEL_DIR * -2)+1 );
         gpio_put(RIGHT_DIR_PIN, RIGHT_WHEEL_DIR);
+        
+        
         error = RIGHT_WHEEL_RPM - r_rpm;  // calculate error
         rITerm += (_kI * (double)error); // calculate integral term
         dInput = r_rpm - rLastSpeed; // calculate derivative
         adjustment = (_kP * (double)error) + rITerm - (_kD * dInput);
         RIGHT_PWM += adjustment;
+
+        // if ( r_rpm > RIGHT_WHEEL_RPM )
+        //     RIGHT_PWM--;
+
+        // if ( r_rpm < RIGHT_WHEEL_RPM )
+        //     RIGHT_PWM++;
+
         //limit speed to range of pwm 0-255
         RIGHT_PWM = limitPWM(RIGHT_PWM);
 
-        if (RIGHT_WHEEL_VEL == 0)
-        {
+        if (RIGHT_WHEEL_RPM == 0) {
             RIGHT_PWM = 0;
             DiffDriveState::getInstance()->SetRightWheelStopped();
         }
@@ -326,20 +337,20 @@ void compute_state_callback(TimerHandle_t timer) {
         }
 
 
-        if (IsMotorCmdReceived) {
-            if(LEFT_PWM != 100)
+        // if (IsMotorCmdReceived) {
+            if(LEFT_PWM <= 60)
                 analogWrite(LEFT_PWM_PIN, 200, LEFT_PWM);
-            if(RIGHT_PWM != 100)
+            if(RIGHT_PWM <= 60)
                 analogWrite(RIGHT_PWM_PIN, 200, RIGHT_PWM);
-        }
-        else {
-            analogWrite(LEFT_PWM_PIN, 200, 0);
-            analogWrite(RIGHT_PWM_PIN, 200, 0);
-        }
-
+        // }
+        // else {
+        //     analogWrite(LEFT_PWM_PIN, 200, 0);
+        //     analogWrite(RIGHT_PWM_PIN, 200, 0);
+        //     DiffDriveState::getInstance()->SetLeftWheelStopped();
+        //     DiffDriveState::getInstance()->SetRightWheelStopped();
+        // }
 
         one_sec_counter++;
-
 
     // printf("\n%d %d %d %d %f %f",LEFT_PWM,  RIGHT_PWM, LEFT_WHEEL_VEL, LEFT_WHEEL_RPM, DiffDriveState::getInstance()->GetLeftWheelVelocity(), DiffDriveState::getInstance()->GetLeftWheelRPM() );
     
