@@ -27,7 +27,7 @@ uint32_t RIGHT_WHEEL_RPM = 0;
 
 
 
-//Write back the wheek state such as position and velocity
+//Write back the wheel state such as position and velocity
 void write_state() {
     // Radians units scaled by WRITE_STATE_SCALE_FACTOR
     uint32_t LeftPosScaled  = DiffDriveState::getInstance()->GetLeftWheelPosition()  * WRITE_STATE_SCALE_FACTOR;
@@ -96,14 +96,11 @@ void handle_command(std::vector<uint8_t>& frame) {
         uint8_t COMMAND_TYPE = frame.at(0);
         switch(COMMAND_TYPE){
             case 0x10:
-            {
-                read_state(frame);
-            }
+            { read_state(frame); }
             break;
 
-            case 0x20:{
-                write_state();
-            }
+            case 0x20:
+            { write_state(); }
             break;
         }
 }

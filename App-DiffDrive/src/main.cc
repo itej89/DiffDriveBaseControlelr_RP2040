@@ -233,6 +233,9 @@ void compute_state_callback(TimerHandle_t timer) {
 
     // printf("\n%d %d %d %d %f %f",LEFT_PWM,  RIGHT_PWM, LEFT_WHEEL_VEL, LEFT_WHEEL_RPM, DiffDriveState::getInstance()->GetLeftWheelVelocity(), DiffDriveState::getInstance()->GetLeftWheelRPM() );
     
+
+       printf("\n%ld %ld",DiffDriveState::getInstance()->GetLeftEncoderCount(), DiffDriveState::getInstance()->GetRightEncoderCount() );
+   
 }
 
 
@@ -271,11 +274,11 @@ int main() {
     stdio_init_all();
     init_gpio();
 
-    gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN, GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+    gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN_1, GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
                 DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
             });
 
-    gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN,  GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+    gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN_1,  GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
                 DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
             });
 

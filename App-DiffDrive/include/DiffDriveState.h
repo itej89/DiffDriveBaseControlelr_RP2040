@@ -94,6 +94,9 @@ class DiffDriveState{
 
        
         //Getters and setters------------------------------------------------------
+        int64_t GetLeftEncoderCount() { return LeftEncoderTickCounter;  }
+        int64_t GetRightEncoderCount(){ return RightEncoderTickCounter; }
+
         void SetLeftWheelDirection(int8_t dir ) { LeftWheelDirection = dir; }
         void SetRightWheelDirection(int8_t dir ) { RightWheelDirection = dir; }
  
@@ -118,11 +121,11 @@ class DiffDriveState{
         void IRQ_ENCODER(uint gpio, uint32_t events) {  
             
             switch(gpio){
-                case LEFT_ENCODER_PIN:
+                case LEFT_ENCODER_PIN_1:
                     UpdateLeftEncoderCount();
                     break;
 
-                case RIGHT_ENCODER_PIN:
+                case RIGHT_ENCODER_PIN_1:
                     UpdateRightEncoderCount();
                     break;
             };
