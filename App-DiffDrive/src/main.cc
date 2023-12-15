@@ -7,13 +7,14 @@
  *
  */
 
+//FreeRTOS Headers-----------------
 #include <FreeRTOS.h>
 #include <task.h>
 #include <queue.h>
 #include <timers.h>
 #include <semphr.h>
 
-
+//C++ Headers----------------------
 #include <iostream>
 #include <string>
 #include <vector>
@@ -25,94 +26,20 @@
 #include <atomic>
 #include <algorithm>
 
+//PICO SDK Headers---------------
 #include "hardware/sync.h"
 #include "pico/bootrom.h"
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
 #include "pico/stdio_usb.h"
 
+//Application Headers------------
+#include "Constants.h"
+#include "PIDParams.h"
 #include "pico_pwm.h"
+#include "CommandParser.h"
 #include "DiffDriveState.h"
 
-
-
-#define DEBUG_SERIAL 1
-
-
-/**
- * @brief CONSTANTS ----------------------------------------------------------
- * ---------------------------------------------------------------------------
- */
-// RTOS TASK IDs for reading commands and speed control loops
-#define TIMER_ID_COMPUTE_STATE  2
-#define TIMER_ID_READ_CMD     3
-
-// GPIO Connection PIN numbers
-#define LEFT_PWM_PIN  1
-#define RIGHT_PWM_PIN  0
-
-#define LEFT_DIR_PIN  2
-#define RIGHT_DIR_PIN  3
-
-#define RIGHT_ENCODER_PIN 7
-#define LEFT_ENCODER_PIN 6
-
-//Execution frequency of reading commands and speed control loops
-#define COMPUTE_STATE_RATE 5 //hz
-#define READ_CMD_RATE    20   //hz
-
-#define COMPUTE_STATE_PERIOD_MS 1000/COMPUTE_STATE_RATE //Milliseconds
-#define READ_CMD_PERIOD_MS    1000/READ_CMD_RATE        //Milliseconds
-
-//Float to Integer scale factor for Serial State Commands
-#define WRITE_STATE_SCALE_FACTOR 10000
-//----------------------------------------------------------
-
-
-
-/**
- * @brief SPEED CONTROL CONTEXT ----------------------------------------------------------
- * ---------------------------------------------------------------------------------------
- */
-uint8_t LEFT_WHEEL_DIR = 0;
-uint8_t RIGHT_WHEEL_DIR = 0;
-uint8_t LEFT_PWM = 0;
-uint8_t RIGHT_PWM = 0;
-
-uint32_t LEFT_WHEEL_VEL = 0;
-uint32_t RIGHT_WHEEL_VEL = 0;
-
-uint32_t LEFT_WHEEL_RPM = 0;
-uint32_t RIGHT_WHEEL_RPM = 0;
-//----------------------------------------------------------
-
-
-//time before we decide our control program has failed and we kill the motors
-#define timeoutMs 500
-
-//set to 1 to enable a subscriber for P, I and D values.
-//note that D values are scaled by dividing by 1000, since rosserial can only do 32 bit floats
-#define pidTuningMode 0
-
-
-
-double rITerm = 0.0;
-double lITerm = 0.0;
-int rLastSpeed = 0;
-int lLastSpeed = 0;
-
-double _kP = 0.5;
-double _kI = 0.006;
-double _kD = 0.000000000625;
-
-// double _kP = .000045;
-// double _kI = 0.0;
-// double _kD = 0.0;
-
-long nextUpdateR = 0;
-long nextUpdateL = 0;
-long nextUpdatePID = 0;
-long nextUpdatePower = 0;
 
 
 
@@ -127,13 +54,13 @@ volatile TimerHandle_t read_command_timer;
 
 //Initialize Frame intformation--------------------------------------
 //-------------------------------------------------------------------
-#define BYTES_SF  0x1FA8 //Start of frame
-#define BYTES_EF  0x1FA9 //End of frame
+#define BYTES_SF  0x1FA8 // Start of frame
+#define BYTES_EF  0x1FA9 // End of frame
 
-//Stores all incoming data
+// Stores all incoming data
 std::vector<uint8_t> RX_BUFFER;
 
-//Stores Extracted frames from the RX_BUFFER
+// Stores Extracted frames from the RX_BUFFER
 std::vector<std::vector<uint8_t>> RX_FRAMES;
 //-------------------------------------------------------------------
 
@@ -160,101 +87,59 @@ void init_gpio() {
 //-------------------------------------------------------------------
 
 
-//Interrupt handlers for encoders------------------------------------
-//-------------------------------------------------------------------
-void IRQ_ENCODER(uint gpio, uint32_t events) {
-    switch(gpio){
-
-        case LEFT_ENCODER_PIN:
-        DiffDriveState::getInstance()->UpdateLeftEncoderCount();
-        break;
-
-        case RIGHT_ENCODER_PIN:
-        DiffDriveState::getInstance()->UpdateRightEncoderCount();
-        break;
-
-    };
-}
-//-------------------------------------------------------------------
-
-
-
-
-//Write back the wheek state such as position and velocity
-void write_state() {
-    // Radians units scaled by WRITE_STATE_SCALE_FACTOR
-    uint32_t LeftPosScaled  = DiffDriveState::getInstance()->GetLeftWheelPosition()  * WRITE_STATE_SCALE_FACTOR;
-    uint32_t RightPosScaled = DiffDriveState::getInstance()->GetRightWheelPosition() * WRITE_STATE_SCALE_FACTOR;
-    
-    // m/sec units scaled by WRITE_STATE_SCALE_FACTOR
-    uint32_t LeftVelScaled  = DiffDriveState::getInstance()->GetLeftWheelVelocity()  * WRITE_STATE_SCALE_FACTOR;
-    uint32_t RightVelScaled = DiffDriveState::getInstance()->GetRightWheelVelocity() * WRITE_STATE_SCALE_FACTOR;
-
-    //FRAME FORMAT [SOF, LEN, DATA, CHK, EOF]
-    uint8_t stateFrame[] = {
-        0x1F, 0xE8,
-        0x10,
-        (uint8_t)(LeftPosScaled  >> 24  & 0xFF), (uint8_t)(LeftPosScaled  >> 16 & 0xFF), (uint8_t)(LeftPosScaled  >> 8 & 0xFF), (uint8_t)(LeftPosScaled  & 0xFF), 
-        (uint8_t)(RightPosScaled >> 24  & 0xFF), (uint8_t)(RightPosScaled >> 16 & 0xFF), (uint8_t)(RightPosScaled >> 8 & 0xFF), (uint8_t)(RightPosScaled & 0xFF), 
-        LEFT_WHEEL_DIR,
-        (uint8_t)(LeftVelScaled  >> 24  & 0xFF), (uint8_t)(LeftVelScaled  >> 16 & 0xFF), (uint8_t)(LeftVelScaled  >> 8 & 0xFF), (uint8_t)(LeftVelScaled  & 0xFF), 
-        RIGHT_WHEEL_DIR,
-        (uint8_t)(RightVelScaled >> 24  & 0xFF), (uint8_t)(RightVelScaled >> 16 & 0xFF), (uint8_t)(RightVelScaled >> 8 & 0xFF), (uint8_t)(RightVelScaled & 0xFF), 
-        0x02, 0x02,
-        0x1F, 0xE9
-    };
-
-    for (int i=0; i< 23; i++)
-        putchar(stateFrame[i]);
-}
 
 
 std::atomic<bool>  IsMotorCmdReceived(false);
-void handle_command() {
-    if(RX_FRAMES.size() > 0){
-        uint8_t COMMAND_TYPE = RX_FRAMES.at(0).at(0);
-        switch(COMMAND_TYPE){
-            case 0x10:
-            {
-                uint32_t tLEFT_WHEEL_VEL = RX_FRAMES.at(0).at(2);
-                tLEFT_WHEEL_VEL = tLEFT_WHEEL_VEL << 24 | RX_FRAMES.at(0).at(3);
-                tLEFT_WHEEL_VEL = tLEFT_WHEEL_VEL << 16 | RX_FRAMES.at(0).at(4);
-                tLEFT_WHEEL_VEL = tLEFT_WHEEL_VEL << 8  | RX_FRAMES.at(0).at(5);
+//Parses the command received over serial
+void read_command_callback(TimerHandle_t timer) {
+    //Read a byte from the input
+    int ch;
+    ch = getchar_timeout_us(5000);
+    uint8_t byte = ch;
+    while(ch != PICO_ERROR_TIMEOUT){
+        RX_BUFFER.push_back(byte&0xFF);
+        ch = getchar_timeout_us(5000);
+        byte = ch;
+    }
 
-                uint32_t tRIGHT_WHEEL_VEL = RX_FRAMES.at(0).at(7);
-                tRIGHT_WHEEL_VEL = tRIGHT_WHEEL_VEL << 24 | RX_FRAMES.at(0).at(8);
-                tRIGHT_WHEEL_VEL = tRIGHT_WHEEL_VEL << 16 | RX_FRAMES.at(0).at(9);
-                tRIGHT_WHEEL_VEL = tRIGHT_WHEEL_VEL << 8 | RX_FRAMES.at(0).at(10);
+    //Parse all complete frames recieved
+    //FRAME FORMAT [SOF, LEN, DATA, CHK, EOF]
+    while (RX_BUFFER.size() > 3) {
 
-                LEFT_WHEEL_DIR  =  RX_FRAMES.at(0).at(1);
-                RIGHT_WHEEL_DIR =  RX_FRAMES.at(0).at(6);
+        //Validate start of frame bytes
+        if(RX_BUFFER.at(0) == (BYTES_SF>>8 & 0xFF) && 
+        RX_BUFFER.at(1) == (BYTES_SF    & 0xFF)){
+                
+                //Get frame legth
+                uint8_t length = RX_BUFFER.at(2);
 
-                //Recieved Wheel velocities in  mm per second
-                LEFT_WHEEL_VEL  = tLEFT_WHEEL_VEL;
-                RIGHT_WHEEL_VEL = tRIGHT_WHEEL_VEL;
+                //Wait and read complete frame length
+                // SOF+CMD_TYPE+DATA+CHKSUM+EOF
+                while(RX_BUFFER.size() < 2+1+length+2+2){
+                    ch = getchar_timeout_us(5000);
+                    if(ch == PICO_ERROR_TIMEOUT)
+                        break;
+                    RX_BUFFER.push_back(ch&0xFF);
+                }
 
-                //Converted Wheel RPM
-                double lomega = (LEFT_WHEEL_VEL*1.0) / (WHEEL_RADIUS*1.0);
-                double lrps = lomega / (2 * 3.14);
-                double lrpm = lrps * 60;
-                LEFT_WHEEL_RPM  = (uint32_t)lrpm;
+                //Addd frame to the que
+                RX_FRAMES.push_back(std::vector<uint8_t>(RX_BUFFER.begin()+3, RX_BUFFER.begin()+3+length));
 
-                double romega = (RIGHT_WHEEL_VEL*1.0) / (WHEEL_RADIUS*1.0);
-                double rrps = romega / (2 * 3.14);
-                double rrpm = rrps * 60;
-                RIGHT_WHEEL_RPM  = (uint32_t)rrpm;
-
+                //handle command
+                handle_command(RX_FRAMES.at(0));
+                
+                //erase frame from the que
+                RX_BUFFER.erase(RX_BUFFER.begin(),RX_BUFFER.begin() + 2+1+RX_FRAMES.at(0).size()+2+2 );
+                RX_FRAMES.erase(RX_FRAMES.begin());
                 IsMotorCmdReceived = true;
-            }
-            break;
-
-            case 0x20:{
-                write_state();
-            }
-            break;
         }
+        else
+            //keep clearing data until valid start of frame is found
+            RX_BUFFER.erase(RX_BUFFER.begin(), RX_BUFFER.begin()+1);
     }
 }
+
+
 
 int limitPWM(int pwm) {
 //   if (pwm < 20)
@@ -285,12 +170,6 @@ void compute_state_callback(TimerHandle_t timer) {
         double dInput = l_rpm - lLastSpeed; // calculate derivative
         int adjustment = (_kP * (double)error) + lITerm - (_kD * dInput);
         LEFT_PWM += adjustment;
-
-        // if ( l_rpm > LEFT_WHEEL_RPM )
-        //     LEFT_PWM--;
-
-        // if ( l_rpm < LEFT_WHEEL_RPM )
-        //     LEFT_PWM++;
 
         //limit speed to range of pwm 0-255
         LEFT_PWM = limitPWM(LEFT_PWM);
@@ -358,55 +237,6 @@ void compute_state_callback(TimerHandle_t timer) {
 
 
 
-void read_command_callback(TimerHandle_t timer) {
-    //Read a byte from the input
-    int ch;
-    ch = getchar_timeout_us(5000);
-    uint8_t byte = ch;
-    while(ch != PICO_ERROR_TIMEOUT){
-        RX_BUFFER.push_back(byte&0xFF);
-        ch = getchar_timeout_us(5000);
-        byte = ch;
-    }
-
-    //Parse all complete frames recieved
-    //FRAME FORMAT [SOF, LEN, DATA, CHK, EOF]
-    while (RX_BUFFER.size() > 3) {
-
-        //Validate start of frame bytes
-        if(RX_BUFFER.at(0) == (BYTES_SF>>8 & 0xFF) && 
-        RX_BUFFER.at(1) == (BYTES_SF    & 0xFF)){
-                
-                //Get frame legth
-                uint8_t length = RX_BUFFER.at(2);
-
-                //Wait and read complete frame length
-                // SOF+CMD_TYPE+DATA+CHKSUM+EOF
-                while(RX_BUFFER.size() < 2+1+length+2+2){
-                    ch = getchar_timeout_us(5000);
-                    if(ch == PICO_ERROR_TIMEOUT)
-                        break;
-                    RX_BUFFER.push_back(ch&0xFF);
-                }
-
-                //Addd frame to the que
-                RX_FRAMES.push_back(std::vector<uint8_t>(RX_BUFFER.begin()+3, RX_BUFFER.begin()+3+length));
-
-                //handle command
-                handle_command();
-                
-                //erase frame from the que
-                RX_BUFFER.erase(RX_BUFFER.begin(),RX_BUFFER.begin() + 2+1+RX_FRAMES.at(0).size()+2+2 );
-                RX_FRAMES.erase(RX_FRAMES.begin(),RX_FRAMES.begin()+1);
-        }
-        else
-            //keep clearing data until valid start of frame is found
-            RX_BUFFER.erase(RX_BUFFER.begin(), RX_BUFFER.begin()+1);
-    }
-}
-
-
-
 void hw_interface_timer_scheduler(void* arg) {
 
     // Create Two timers for reading commands ans writing state
@@ -441,9 +271,13 @@ int main() {
     stdio_init_all();
     init_gpio();
 
-    printf ("Hello GPIO IRQ\n");
-    gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN, GPIO_IRQ_EDGE_FALL, true, &IRQ_ENCODER);
-    gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN,  GPIO_IRQ_EDGE_FALL, true, &IRQ_ENCODER);
+    gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN, GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+                DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
+            });
+
+    gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN,  GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+                DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
+            });
 
     //Main task that handles hw interface's read and write timers
     BaseType_t hw_interface_status = xTaskCreate(hw_interface_timer_scheduler, 

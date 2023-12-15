@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "Constants.h"
+#include "pico/stdlib.h"
+#include "pico/stdio.h"
+
 #define WHEEL_RADIUS   95
 #define WHEEL_PERIMETER  2 * 3.14 * WHEEL_RADIUS
 
@@ -25,12 +29,15 @@
 
 class DiffDriveState{
     private:
+        //Count with direction for postion computation
         int64_t LeftEncoderDirectionalTickCounter = 0;
         int64_t RightEncoderDirectionalTickCounter = 0;
 
+        //Always counts up for velcoity computation
         int64_t LeftEncoderTickCounter = 0;
         int64_t RightEncoderTickCounter = 0;
 
+        //Current state-------------------------
         int8_t LeftWheelDirection = 1;
         int8_t RightWheelDirection = 1;
 
@@ -42,18 +49,25 @@ class DiffDriveState{
 
         unsigned int LeftWheelRPM = 0;
         unsigned int RightWheelRPM = 0;
+        //---------------------------------------
 
-        static DiffDriveState* instancePtr;
 
+        //Used to check if the wheel has turned------
         int64_t LastLeftEncoderTickCounter = 0;
         int64_t LastRightEncoderTickCounter = 0;
         clock_t LastStateUpdateTime;
-        DiffDriveState(){
-            LastStateUpdateTime = clock();
-        }
+        //-------------------------------------------
+
+        
+
+        static DiffDriveState* instancePtr;
 
         clock_t clock(){
             return (clock_t) time_us_64() / 10000;}
+
+        DiffDriveState(){
+            LastStateUpdateTime = clock();
+        }
         
 
 
@@ -62,27 +76,24 @@ class DiffDriveState{
         DiffDriveState(const DiffDriveState& obj)= delete;
 
         static DiffDriveState* getInstance()
-        {
-            // If there is no instance of class
-            // then we can create an instance.
+        {   
+            /**
+             * @brief Construct a new if object using singleton pattern
+             * 
+             */
             if (instancePtr == NULL)
             {
-            // We can access private members
-            // within the class.
-            instancePtr = new DiffDriveState();
-            
-            // returning the instance pointer
-            return instancePtr;
+                instancePtr = new DiffDriveState();
+                return instancePtr;
             }
             else
             {
-            // if instancePtr != NULL that means
-            // the class already have an instance.
-            // So, we are returning that instance
-            // and not creating new one.
-            return instancePtr;
+                return instancePtr;
             }
         }
+
+       
+        //Getters and setters------------------------------------------------------
         void SetLeftWheelDirection(int8_t dir ) { LeftWheelDirection = dir; }
         void SetRightWheelDirection(int8_t dir ) { RightWheelDirection = dir; }
  
@@ -97,19 +108,44 @@ class DiffDriveState{
  
         void SetLeftWheelStopped() { LeftWheelVelocity=0;  LeftWheelRPM = 0;}
         void SetRightWheelStopped(){ RightWheelVelocity=0; RightWheelRPM = 0;}
+        //---------------------------------------------------------------------------
 
 
-        void UpdateLeftEncoderCount() { 
+        /**
+         * @brief Encoder Interrupt handle
+         * 
+         */
+        void IRQ_ENCODER(uint gpio, uint32_t events) {  
+            
+            switch(gpio){
+                case LEFT_ENCODER_PIN:
+                    UpdateLeftEncoderCount();
+                    break;
+
+                case RIGHT_ENCODER_PIN:
+                    UpdateRightEncoderCount();
+                    break;
+            };
+        }
+
+        void UpdateLeftEncoderCount() {
             LeftEncoderDirectionalTickCounter += LeftWheelDirection*1;
             LeftEncoderTickCounter += 1;
         }
 
 
-        void UpdateRightEncoderCount(){ 
+        void UpdateRightEncoderCount(){
             RightEncoderDirectionalTickCounter += RightWheelDirection*1; 
             RightEncoderTickCounter += 1;
         }
+        //---------------------------------------------------------------------------
 
+
+
+        /**
+         * @brief Computes Wheel position
+         * 
+         */
         void updateWheelPosition(){
 
             //Update Left wheel position and velocity
@@ -124,7 +160,13 @@ class DiffDriveState{
             if(RightWheelPosition < 0) RightWheelPosition = 6.28  + RightWheelPosition;
 
         }
+        //---------------------------------------------------------------------------
 
+
+        /**
+         * @brief Computes Wheel Velocity and RPM
+         * 
+         */
         void updateWheelState(){
             
             clock_t nowTime = clock();
@@ -156,4 +198,5 @@ class DiffDriveState{
             LastRightEncoderTickCounter = RightEncoderTickCounter;
 
         }
+        //---------------------------------------------------------------------------
 };
