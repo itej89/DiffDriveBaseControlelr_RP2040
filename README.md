@@ -37,17 +37,15 @@ To use the code in this repo, your system must be set up for RP2040 C/C++ develo
 
 ## Usage
 
-1. Clone the repo: `git clone https://github.com/smittytone/RP2040-FreeRTOS`.
-1. Enter the repo: `cd RP2040-FreeRTOS`.
+1. Clone the repo: `git clone --recursive https://github.com/CNHGit/DiffDriveBaseControlelr_RP2040`.
+1. Enter the repo: `cd DiffDriveBaseControlelr_RP2040`.
 1. Install the submodules: `git submodule update --init --recursive`.
-1. Optionally, edit `CMakeLists.txt` and `/<Application>/CMakeLists.txt` to rename the project.
 1. Optionally, manually configure the build process: `cmake -S . -B build/`.
 1. Optionally, manually build the app: `cmake --build build`.
 1. Connect your device so it’s ready for file transfer.
 1. Install the app: `./deploy.sh`.
     * Pass the app you wish to deplopy:
-        * `./deploy.sh build/App-Template/TEMPLATE.uf2`.
-        * `./deploy.sh build/App-Scheduling/SCHEDULING_DEMO.uf2`.
+        * `./deploy.sh build/App-DiffDrive/DIFF_DRIVE.uf2`.
     * To trigger a build, include the `--build` or `-b` flag: `./deploy.sh -b`.
 
 ## Debug vs Release
@@ -73,8 +71,6 @@ cmake --build build
 
 ## The Apps
 
-This repo includes a number of deployable apps. The project builds them all, sequentially. Exclude apps from the build process by commenting out their `add_subdirectory()` lines in the top-level `CMakeLists.txt`.
-
 ### App-DiffDrive
 
 This C++ app provides a Differentail drive controller with Quadrature encoder support and BCM6050 IMU
@@ -84,25 +80,14 @@ The Circuit diagram is as shown in the figure below.
 
 ![Circuit layout](./images/CircuitDiagram.png)
 
-The code demonstrates a basic FreeRTOS setup, but you can replace it entirely with your own code if you’re using this repo’s contents as a template for your own projects.
-
 #### Activity Diagram
-
 ![Activity Diagram](./images/ActivityDiagram.png)
 
 #### Sequence Diagram
-
+This diagram shows different parallel tasks being executed in the controller.
+* Reading encoder interrupts
+* Handling serial commands read and state write
+* PID control loop
 ![Sequence Diagram](./images/SequenceDiagram.png)
 
 
-## Credits
-
-This work was inspired by work done on [Twilio Microvisor FreeRTOS Demo code](https://github.com/twilio/twilio-microvisor-freertos), but the version of the `FreeRTOSConfig.h` file included here was derived from [work by @yunka2](https://github.com/yunkya2/pico-freertos-sample).
-
-## Copyright and Licences
-
-Application source © 2023, Tony Smith and licensed under the terms of the [MIT Licence](./LICENSE.md).
-
-[FreeRTOS](https://freertos.org/) © 2021, Amazon Web Services, Inc. It is also licensed under the terms of the [MIT Licence](./LICENSE.md).
-
-The [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk) is © 2020, Raspberry Pi (Trading) Ltd. It is licensed under the terms of the [BSD 3-Clause "New" or "Revised" Licence](https://github.com/raspberrypi/pico-sdk/blob/master/LICENSE.TXT).
