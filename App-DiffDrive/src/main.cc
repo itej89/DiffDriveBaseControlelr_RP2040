@@ -37,7 +37,6 @@
 #include "Constants.h"
 #include "PIDParams.h"
 #include "pico_pwm.h"
-#include "CommandParser.h"
 #include "DiffDriveState.h"
 
 
@@ -45,7 +44,8 @@
 
 //Initialize all required tasks--------------------------------------
 //-------------------------------------------------------------------
-DiffDriveState* DiffDriveState::instancePtr = NULL;
+DiffDriveState diffDriveState;
+#include "CommandParser.h"
 TaskHandle_t hw_interface_timer_schedule_handle = NULL;
 volatile TimerHandle_t compute_state_timer;
 volatile TimerHandle_t read_command_timer;
@@ -155,14 +155,14 @@ int limitPWM(int pwm) {
 
 int one_sec_counter = 0;
 void compute_state_callback(TimerHandle_t timer) {
-        DiffDriveState::getInstance()->updateWheelPosition();
-        DiffDriveState::getInstance()->updateWheelState();
+        diffDriveState.updateWheelPosition();
+        diffDriveState.updateWheelState();
 
-        unsigned int l_rpm = DiffDriveState::getInstance()->GetLeftWheelRPM();
-        unsigned int r_rpm = DiffDriveState::getInstance()->GetRightWheelRPM();
+        unsigned int l_rpm = diffDriveState.GetLeftWheelRPM();
+        unsigned int r_rpm = diffDriveState.GetRightWheelRPM();
 
         // Maps (a value of 0 to 1) and (a value of 1 to -1)
-        DiffDriveState::getInstance()->SetLeftWheelDirection( (LEFT_WHEEL_DIR * -2)+1 );
+        diffDriveState.SetLeftWheelDirection( (LEFT_WHEEL_DIR * -2)+1 );
         gpio_put(LEFT_DIR_PIN, LEFT_WHEEL_DIR);
 
         int error = LEFT_WHEEL_RPM - l_rpm;  // calculate error
@@ -176,13 +176,13 @@ void compute_state_callback(TimerHandle_t timer) {
 
         if (LEFT_WHEEL_RPM == 0) {
             LEFT_PWM = 0;
-            DiffDriveState::getInstance()->SetLeftWheelStopped();
+            diffDriveState.SetLeftWheelStopped();
         }
 
         lLastSpeed = l_rpm;
 
         // Maps (a value of 0 to 1) and (a value of 1 to -1)
-        DiffDriveState::getInstance()->SetRightWheelDirection( (RIGHT_WHEEL_DIR * -2)+1 );
+        diffDriveState.SetRightWheelDirection( (RIGHT_WHEEL_DIR * -2)+1 );
         gpio_put(RIGHT_DIR_PIN, RIGHT_WHEEL_DIR);
         
         
@@ -203,7 +203,7 @@ void compute_state_callback(TimerHandle_t timer) {
 
         if (RIGHT_WHEEL_RPM == 0) {
             RIGHT_PWM = 0;
-            DiffDriveState::getInstance()->SetRightWheelStopped();
+            diffDriveState.SetRightWheelStopped();
         }
      
         rLastSpeed = r_rpm;
@@ -233,8 +233,8 @@ void compute_state_callback(TimerHandle_t timer) {
 
     // printf("\n%d %d %d %d %f %f",LEFT_PWM,  RIGHT_PWM, LEFT_WHEEL_VEL, LEFT_WHEEL_RPM, DiffDriveState::getInstance()->GetLeftWheelVelocity(), DiffDriveState::getInstance()->GetLeftWheelRPM() );
     
-
-       printf("\n%ld %ld",DiffDriveState::getInstance()->GetLeftEncoderCount(), DiffDriveState::getInstance()->GetRightEncoderCount() );
+  printf("\n%ld %ld",diffDriveState.LeftEncoderTickCounter, diffDriveState.RightEncoderTickCounter );
+        
    
 }
 
@@ -265,6 +265,7 @@ void hw_interface_timer_scheduler(void* arg) {
 
 
 
+
 /*
  * RUNTIME START
  */
@@ -273,13 +274,20 @@ int main() {
     // Initialize chosen serial port
     stdio_init_all();
     init_gpio();
-
     gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN_1, GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
-                DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
+                diffDriveState.IRQ_ENCODER(gpio, events);
             });
 
     gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN_1,  GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
-                DiffDriveState::getInstance()->IRQ_ENCODER(gpio, events);
+                diffDriveState.IRQ_ENCODER(gpio, events);
+            });
+
+    gpio_set_irq_enabled_with_callback (RIGHT_ENCODER_PIN_2, GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+                diffDriveState.IRQ_ENCODER(gpio, events);
+            });
+
+    gpio_set_irq_enabled_with_callback (LEFT_ENCODER_PIN_2,  GPIO_IRQ_EDGE_FALL, true, [](uint gpio, uint32_t events){
+                diffDriveState.IRQ_ENCODER(gpio, events);
             });
 
     //Main task that handles hw interface's read and write timers

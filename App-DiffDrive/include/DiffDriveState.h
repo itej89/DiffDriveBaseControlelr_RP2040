@@ -11,7 +11,7 @@
 #define WHEEL_RADIUS   95
 #define WHEEL_PERIMETER  2 * 3.14 * WHEEL_RADIUS
 
-#define ENCODER_COUNT_PER_REV 80
+#define ENCODER_COUNT_PER_REV 1200
 
 #define RADIANS_PER_COUNT   2*3.14/ ENCODER_COUNT_PER_REV
 #define DISTANCE_PER_COUNT  WHEEL_PERIMETER/ENCODER_COUNT_PER_REV
@@ -28,14 +28,14 @@
 
 
 class DiffDriveState{
-    private:
+    public:
         //Count with direction for postion computation
-        int64_t LeftEncoderDirectionalTickCounter = 0;
-        int64_t RightEncoderDirectionalTickCounter = 0;
+        long LeftEncoderDirectionalTickCounter = 0;
+        long RightEncoderDirectionalTickCounter = 0;
 
         //Always counts up for velcoity computation
-        int64_t LeftEncoderTickCounter = 0;
-        int64_t RightEncoderTickCounter = 0;
+        unsigned long LeftEncoderTickCounter = 0;
+        unsigned long RightEncoderTickCounter = 0;
 
         //Current state-------------------------
         int8_t LeftWheelDirection = 1;
@@ -60,38 +60,19 @@ class DiffDriveState{
 
         
 
-        static DiffDriveState* instancePtr;
 
         clock_t clock(){
             return (clock_t) time_us_64() / 10000;}
 
-        DiffDriveState(){
-            LastStateUpdateTime = clock();
-        }
+        
         
 
 
     public:
-
-        DiffDriveState(const DiffDriveState& obj)= delete;
-
-        static DiffDriveState* getInstance()
-        {   
-            /**
-             * @brief Construct a new if object using singleton pattern
-             * 
-             */
-            if (instancePtr == NULL)
-            {
-                instancePtr = new DiffDriveState();
-                return instancePtr;
-            }
-            else
-            {
-                return instancePtr;
-            }
-        }
-
+        DiffDriveState(){
+                    LastStateUpdateTime = clock();
+                }
+       
        
         //Getters and setters------------------------------------------------------
         int64_t GetLeftEncoderCount() { return LeftEncoderTickCounter;  }
@@ -119,27 +100,24 @@ class DiffDriveState{
          * 
          */
         void IRQ_ENCODER(uint gpio, uint32_t events) {  
-            
-            switch(gpio){
-                case LEFT_ENCODER_PIN_1:
-                    UpdateLeftEncoderCount();
-                    break;
+            if (gpio == 8 || gpio == 9){
+                UpdateLeftEncoderCount();
+            }
 
-                case RIGHT_ENCODER_PIN_1:
-                    UpdateRightEncoderCount();
-                    break;
-            };
+            if (gpio == 10 || gpio == 11) {
+                UpdateRightEncoderCount();
+            }
         }
 
         void UpdateLeftEncoderCount() {
             LeftEncoderDirectionalTickCounter += LeftWheelDirection*1;
-            LeftEncoderTickCounter += 1;
+            LeftEncoderTickCounter = LeftEncoderTickCounter+1;
         }
 
 
         void UpdateRightEncoderCount(){
             RightEncoderDirectionalTickCounter += RightWheelDirection*1; 
-            RightEncoderTickCounter += 1;
+            RightEncoderTickCounter = RightEncoderTickCounter+1;
         }
         //---------------------------------------------------------------------------
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "hardware/pwm.h"
 
 #include "hardware/structs/pwm.h"

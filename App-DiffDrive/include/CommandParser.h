@@ -30,12 +30,12 @@ uint32_t RIGHT_WHEEL_RPM = 0;
 //Write back the wheel state such as position and velocity
 void write_state() {
     // Radians units scaled by WRITE_STATE_SCALE_FACTOR
-    uint32_t LeftPosScaled  = DiffDriveState::getInstance()->GetLeftWheelPosition()  * WRITE_STATE_SCALE_FACTOR;
-    uint32_t RightPosScaled = DiffDriveState::getInstance()->GetRightWheelPosition() * WRITE_STATE_SCALE_FACTOR;
+    uint32_t LeftPosScaled  = diffDriveState.GetLeftWheelPosition()  * WRITE_STATE_SCALE_FACTOR;
+    uint32_t RightPosScaled = diffDriveState.GetRightWheelPosition() * WRITE_STATE_SCALE_FACTOR;
     
     // m/sec units scaled by WRITE_STATE_SCALE_FACTOR
-    uint32_t LeftVelScaled  = DiffDriveState::getInstance()->GetLeftWheelVelocity()  * WRITE_STATE_SCALE_FACTOR;
-    uint32_t RightVelScaled = DiffDriveState::getInstance()->GetRightWheelVelocity() * WRITE_STATE_SCALE_FACTOR;
+    uint32_t LeftVelScaled  = diffDriveState.GetLeftWheelVelocity()  * WRITE_STATE_SCALE_FACTOR;
+    uint32_t RightVelScaled = diffDriveState.GetRightWheelVelocity() * WRITE_STATE_SCALE_FACTOR;
 
     //FRAME FORMAT [SOF, LEN, DATA, CHK, EOF]
     uint8_t stateFrame[] = {
